@@ -4,7 +4,7 @@
   
   <h2> Website : wait  </h2>
   
-  <h3> Linkdien : Follow us  : www.linkedin.com/in/mohammed-aseem-akram  </h3>
+  <h3>  sys ops  </h3>
 
   <h4> Subscribe & Share the Channel </h4>
 
