@@ -1,0 +1,82 @@
+pipeline {
+    agent any
+
+    tools {
+        maven 'maven3'
+    }
+
+    stages {
+        stage('Clean Workspace') {
+            steps {
+                cleanWs()
+            }
+        }
+
+        stage('Git Clone') {
+            steps {
+                git branch: 'main', url: 'https://github.com/Telzone/javamaven.git'
+            }
+        }
+
+        stage('Build WAR with Maven') {
+            steps {
+                sh 'mvn clean package'
+            }
+        }
+           stage('Docker container/images remove') {
+            steps {
+                script {
+                        sh '''docker stop java_new1_container || true && \
+                              docker rm java_new1_container || true && \
+                              docker rmi benzone/java_new1:latest java_new1 || true
+                        '''
+                    }
+                }
+            }
+          stage('Docker Build & Push to Docker Hub') {
+            steps {
+                script {
+                    withDockerRegistry([credentialsId: 'benzone', url: 'https://index.docker.io/v1/']) {
+                        sh '''
+                            docker build -t java_new1 .
+                            docker tag java_new1 benzone/java_new1:latest
+                            docker push benzone/java_new1:latest
+                        '''
+                    }
+                }
+            }
+        }
+
+        stage('Run Docker Container') {
+            steps {
+                sh 'docker run -d -p 9000:8080 --name java_new1_container benzone/java_new1:latest'
+            }
+        }
+    }
+    post {
+    always {
+        script {
+            def buildStatus = currentBuild.currentResult
+            def buildUser = currentBuild.getBuildCauses('hudson.model.Cause$UserIdCause')[0]?.userId ?: 'Github User'
+            
+            emailext (
+                subject: "Pipeline ${buildStatus}: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                body: """
+                    <p>This is a Jenkins maven CICD pipeline status.</p>
+                    <p>Project: ${env.JOB_NAME}</p>
+                    <p>Build Number: ${env.BUILD_NUMBER}</p>
+                    <p>Build Status: ${buildStatus}</p>
+                    <p>Started by: ${buildUser}</p>
+                    <p>Build URL: <a href="${env.BUILD_URL}">${env.BUILD_URL}</a></p>
+                """,
+                to: 'simpleone290@gmail.com',
+                from: 'simpleone290@gmail.com',
+                replyTo: 'simpleone290@gmail.com',
+                mimeType: 'text/html',
+                attachmentsPattern: 'trivyfs.txt,trivyimage.txt'
+            )
+           }
+       }
+
+    }
+}
